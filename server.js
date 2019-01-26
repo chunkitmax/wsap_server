@@ -38,12 +38,15 @@ class Server {
       let name = (req.query && req.query.name) || null
       if (!await this._isReady()) {
         res.json({ success: false, reason: 'browser not ready' })
-      } else if (name) {
-        res.json({ success: true, chats: await this.browser.interpreter.call('getChatByName', name) })
-      } else if (isGroup) {
-        res.json({ success: true, chats: await this.browser.interpreter.call('getAllGroups') })
       } else {
-        res.json({ success: true, chats: await this.browser.interpreter.call('getAllChats') })
+        let ret = await this.browser.interpreter.call('getAllChats')
+        if (name) {
+          ret = ret.filter(v => v.name === name)
+        }
+        if (isGroup) {
+          ret = ret.filter(v => v.isGroup)
+        }
+        res.json({ success: true, chats: ret })
       }
     })
 
@@ -96,7 +99,7 @@ class Server {
         res.json({ success: false, reason: 'browser not ready' })
       } else if (id) {
         if (op == 'more') {
-          await this.browser.interpreter.call('loadEarlierMessages', id)
+          await this.browser.interpreter.callAsync('loadEarlierMessages', id)
         }
         res.json({ success: true, msgs: await this.browser.interpreter.call('getAllMessagesInChat', id, includeMe, includeNoti) })
       } else {

@@ -265,8 +265,7 @@ window.WAPI.getAllChatIds = function (done) {
 * @returns {Array|*} List of chats
 */
 window.WAPI.getAllGroups = function (done) {
-  const groups = window.Store.Chat.filter((chat) => chat.isGroup)
-                                  .map(chat => WAPI._serializeChatObj(chat));
+  const groups = window.Store.Chat.filter((chat) => chat.isGroup);
 
   if (done !== undefined) done(groups);
   return groups;
@@ -281,14 +280,13 @@ window.WAPI.getAllGroups = function (done) {
 */
 window.WAPI.getChat = function (id, done) {
   id = typeof id == "string" ? id : id._serialized;
-  const found = WAPI._serializeChatObj(window.Store.Chat.get(id));
+  const found = window.Store.Chat.get(id);
   if (done !== undefined) done(found);
   return found;
 }
 
 window.WAPI.getChatByName = function (name, done) {
-  const found = window.Store.Chat.filter((chat) => chat.name === name)
-                                 .map(chat => WAPI._serializeChatObj(chat));
+  const found = window.Store.Chat.find((chat) => chat.name === name);
   if (done !== undefined) done(found);
   return found;
 };
