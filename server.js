@@ -36,57 +36,74 @@ class Server {
     this.app.get('/chats', async (req, res) => {
       let isGroup = (req.query && req.query.isGroup) || false
       let name = (req.query && req.query.name) || null
-      if (!await this._isReady()) {
-        res.json({ success: false, reason: 'browser not ready' })
-      } else {
-        let ret = await this.browser.interpreter.call('getAllChats')
-        if (name) {
-          ret = ret.filter(v => v.name === name)
+      try {
+        if (!await this._isReady()) {
+          this.resFailure(res, 'browser not ready')
+        } else {
+          let ret = await this.browser.interpreter.call('getAllChats')
+          if (name) {
+            ret = ret.filter(v => v.name === name)
+          }
+          if (isGroup) {
+            ret = ret.filter(v => v.isGroup)
+          }
+          this.resSuccess(res, { chats: ret })
         }
-        if (isGroup) {
-          ret = ret.filter(v => v.isGroup)
-        }
-        res.json({ success: true, chats: ret })
+      } catch (err) {
+        this.resFailure(res, err)
       }
     })
 
     this.app.get('/chats/unread', async (_,res) => {
       try {
         if (await this._isReady()) {
-          res.json({ success: true, chats: await this.browser.interpreter.call('getUnreadMessages', true, true, 1000) })
+          this.resSuccess(res, { chats: await this.browser.interpreter.call('getUnreadMessages', true, true, 1000) })
           return
         }
-      } catch (e) {}
-      res.json({ success: false, reason: 'failed' })
+      } catch (err) {
+        this.resFailure(res, err)
+      }
     })
 
     this.app.post('/send/seen', async (req, res) => {
       let chatId = (req.body && req.body.id) || null
-      if (!await this._isReady()) {
-        res.json({ success: false, reason: 'browser not ready' })
-      } else if (chatId) {
-        res.json({ success: await this.browser.interpreter.call(chatId) })
-      } else {
-        res.json({ success: false, reason: 'invalid chat id' })
+      try {
+        if (!await this._isReady()) {
+          this.resFailure(res, 'browser not ready')
+        } else if (chatId) {
+          if (await this.browser.interpreter.call(chatId)) {
+            this.resSuccess(res, null)
+          } else {
+            this.resFailure(res, 'api call failed')
+          }
+        } else {
+          this.resFailure(res, 'invalid chat id')
+        }
+      } catch (err) {
+        this.resFailure(res, err)
       }
     })
 
     this.app.post('/send/msg', async (req, res) => {
       let chatId = (req.body && req.body.id) || null
       let msg = (req.body && req.body.msg) || null
-      if (!await this._isReady()) {
-        res.json({ success: false, reason: 'browser not ready' })
-      } else if (chatId && msg) {
-        let ret = await this.browser.interpreter.callAsync('sendMessage', chatId, msg)
-        if (typeof (ret) != 'boolean' && ret) {
-          res.json({ success: true, msgObj: ret })
-        } else if (ret) {
-          res.json({ success: false, reason: 'failed (after 30 attempts)'})
+      try {
+        if (!await this._isReady()) {
+          this.resFailure(res, 'browser not ready')
+        } else if (chatId && msg) {
+          let ret = await this.browser.interpreter.callAsync('sendMessage', chatId, msg)
+          if (typeof (ret) != 'boolean' && ret) {
+            this.resSuccess(res, { msgObj: ret })
+          } else if (ret) {
+            this.resFailure(res, 'failed (after 30 attempts)')
+          } else {
+            this.resFailure(res, 'cannot find chat obj')
+          }
         } else {
-          res.json({ success: false, reason: 'cannot find chat obj' })
+          this.resFailure(res, 'invalid id/msg')
         }
-      } else {
-        res.json({ success: false, reason: 'invalid id/msg'})
+      } catch (err) {
+        this.resFailure(res, err)
       }
     })
 
@@ -95,17 +112,49 @@ class Server {
       let op = (req.params && req.params.op) || null
       let includeMe = (req.query && req.query.includeMe) || true
       let includeNoti = (req.query && req.query.includeNoti) || true
-      if (!await this._isReady()) {
-        res.json({ success: false, reason: 'browser not ready' })
-      } else if (id) {
-        if (op == 'more') {
-          await this.browser.interpreter.callAsync('loadEarlierMessages', id)
+      try {
+        if (!await this._isReady()) {
+          this.resFailure(res, 'browser not ready')
+        } else if (id) {
+          if (op == 'more') {
+            await this.browser.interpreter.callAsync('loadEarlierMessages', id)
+          }
+          this.resSuccess(res, { msgs: await this.browser.interpreter.call('getAllMessagesInChat', id, includeMe, includeNoti) })
+        } else {
+          this.resFailure(res, 'invalid id')
         }
-        res.json({ success: true, msgs: await this.browser.interpreter.call('getAllMessagesInChat', id, includeMe, includeNoti) })
-      } else {
-        res.json({ success: false, reason: 'invalid id' })
+      } catch (err) {
+        this.resFailure(res, err)
       }
     })
+  }
+
+  resSuccess(res, obj) {
+    res.json({
+      success: true,
+      ...obj
+    })
+  }
+
+  resFailure(res, reason) {
+    if (typeof reason === 'object') {
+      if (reason.stack) {
+        res.json({
+          success: false,
+          reason: reason.stack
+        })
+      } else {
+        res.json({
+          succes: false,
+          ...reason
+        })
+      }
+    } else {
+      res.json({
+        success: false,
+        reason
+      })
+    }
   }
 
   async _isReady() {
