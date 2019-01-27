@@ -17,3 +17,6 @@ $ ./start_docker.sh
 
 $ npm start
 ```
+
+## Endpoints
+Please refer to definitions in [server.js](./blob/master/server.js)

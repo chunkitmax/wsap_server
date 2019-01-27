@@ -1,5 +1,6 @@
 const Express = require('express')
 const BodyParser = require('body-parser')
+const EndPoints = require('./endpoints')
 
 
 class Server {
@@ -14,6 +15,17 @@ class Server {
   }
 
   _initApp() {
+    /**
+     * Get QR code before login
+     * 
+     * Endpoint:
+     *    <server url>/qr
+     * Query:
+     *    base64: boolean (default: false - return PNG, true - return Base64 String)
+     * Return:
+     *    (base64)? Base64 string : PNG buffer
+     *      ** return empty buffer if logged in (please check content length)
+     */
     this.app.get('/qr', async (req, res) => {
       let retBase64 = (req.query && !!req.query.base64) || false
       let ret = await this.browser.getQr()
@@ -33,6 +45,19 @@ class Server {
       }
     })
 
+    /**
+     * Get Chat objects
+     * 
+     * Endpoint:
+     *    <server url>/chats
+     * Query:
+     *    isGroup: boolean (default: false, true - only return groups)
+     *    name: string (default: null, any - search by name)
+     * Return:
+     *    success: boolean
+     *    reason: string / object (undefined if succeed)
+     *    chats: array of chat object (undefined if failed)
+     */
     this.app.get('/chats', async (req, res) => {
       let isGroup = (req.query && req.query.isGroup) || false
       let name = (req.query && req.query.name) || null
@@ -54,6 +79,17 @@ class Server {
       }
     })
 
+    /**
+     * Get Chat objects having unread messages
+     * 
+     * Endpoint:
+     *    <server url>/chats/unread
+     * Return:
+     *    success: boolean
+     *    reason: string / object (undefined if succeed)
+     *    chats: array of chat object (undefined if failed)
+     *      ** unread messages in array chats[i].messages
+     */
     this.app.get('/chats/unread', async (_,res) => {
       try {
         if (await this._isReady()) {
@@ -65,6 +101,17 @@ class Server {
       }
     })
 
+    /**
+     * Send seen signals
+     * 
+     * Endpoint:
+     *    <server url>/send/seen
+     * Data:
+     *    id: string    chat id
+     * Return:
+     *    success: boolean
+     *    reason: string / object (undefined if succeed)
+     */
     this.app.post('/send/seen', async (req, res) => {
       let chatId = (req.body && req.body.id) || null
       try {
@@ -84,6 +131,19 @@ class Server {
       }
     })
 
+    /**
+     * Send & check message (w/ 30 attempts)
+     * 
+     * Endpoint:
+     *    <server url>/send/msg
+     * Data:
+     *    id: string    chat id
+     *    msg: string   message body
+     * Return:
+     *    success: boolean
+     *    reason: string / object (undefined if succeed)
+     *    msgObj: msg object (undefined if failed)
+     */
     this.app.post('/send/msg', async (req, res) => {
       let chatId = (req.body && req.body.id) || null
       let msg = (req.body && req.body.msg) || null
@@ -107,6 +167,22 @@ class Server {
       }
     })
 
+    /**
+     * Get messages
+     * 
+     * Endpoint:
+     *    <server url>/msgs/:id/:op?
+     * Param:
+     *    id: string    chat id
+     *    op: string    operation [more - load more messages]
+     * Query:
+     *    includeMe: boolean (default: true)
+     *    includeNoti: boolean (default: true)
+     * Return:
+     *    success: boolean
+     *    reason: string / object (undefined if succeed)
+     *    msgs: array of message object (undefined if failed)
+     */
     this.app.get('/msgs/:id/:op?', async (req, res) => {
       let id = (req.params && req.params.id) || null
       let op = (req.params && req.params.op) || null
@@ -116,7 +192,7 @@ class Server {
         if (!await this._isReady()) {
           this.resFailure(res, 'browser not ready')
         } else if (id) {
-          if (op == 'more') {
+          if (typeof op === 'strings' && op.toLowerCase() == 'more') {
             await this.browser.interpreter.callAsync('loadEarlierMessages', id)
           }
           this.resSuccess(res, { msgs: await this.browser.interpreter.call('getAllMessagesInChat', id, includeMe, includeNoti) })
