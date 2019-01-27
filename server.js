@@ -1,6 +1,5 @@
 const Express = require('express')
 const BodyParser = require('body-parser')
-const EndPoints = require('./endpoints')
 
 
 class Server {
