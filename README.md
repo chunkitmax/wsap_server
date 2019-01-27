@@ -1,7 +1,19 @@
 # WSAP_Server
-run
+
+## Setup
 ```bash
-$ ./start_docker.sh # make sure this file has execute permission
+# make sure this file has execute permission
+$ chmod +x start_docker.sh
+# install all dependencies
 $ npm install
-$ node main.js
+```
+
+## Run
+```bash
+# debug (w/ VNC support port 5900)
+$ ./start_docker.sh debug
+# or
+$ ./start_docker.sh
+
+$ npm start
 ```
