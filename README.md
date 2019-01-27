@@ -19,4 +19,4 @@ $ npm start
 ```
 
 ## Endpoints
-Please refer to definitions in [server.js](./blob/master/server.js)
+Please refer to definitions in [server.js](./server.js)
