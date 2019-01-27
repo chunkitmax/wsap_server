@@ -1,10 +1,9 @@
 const Fs = require('fs')
 const Interpreter = require('./wapi_interpreter')
-const Selenium = require('selenium-webdriver'), Builder = Selenium.Builder,
-                                                By = Selenium.By,
-                                                Key = Selenium.Key,
-                                                Until = Selenium.until,
-                                                ExpectedConditions = Selenium.ExpectedConditions
+const Selenium = require('selenium-webdriver'),
+      Builder = Selenium.Builder,
+      By = Selenium.By,
+      Until = Selenium.until
 
 
 class Browser {
@@ -21,6 +20,7 @@ class Browser {
     this.browser = null
   }
 
+  // QR code should be displayed on WHITE background
   async getQr() {
     if (!await this.checkLogin()) {
       await this.browser.wait(Until.elementLocated(By.css('* img[alt="Scan me!"]')))
@@ -57,7 +57,6 @@ class Browser {
         if (await this.checkLogin()) {
           await this._routine()
         }
-        // wait for side panels (supposed to appear after login)
         await this.browser.wait(Until.elementLocated(By.css('#pane-side')), 5000)
       } catch (e) {
         if (this.browser == null)
@@ -67,6 +66,7 @@ class Browser {
   }
 
   async _routine() {
+    // wait for side panels (supposed to appear after login)
     await this.browser.wait(Until.elementLocated(By.css('#pane-side')))
     while (!this._injectScript()) {
       if (!await this.checkLogin())
