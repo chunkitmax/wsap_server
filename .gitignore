@@ -62,3 +62,9 @@ typings/
 *.png
 
 .*
+
+# tsc output directory
+dist
+
+# apidoc output folder
+doc
