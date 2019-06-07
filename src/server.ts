@@ -1,19 +1,34 @@
-const Express = require('express')
-const BodyParser = require('body-parser')
+import BodyParser from 'body-parser';
+import Express, { Application } from 'express';
+import Browser from './browser';
 
+export default class Server {
 
-class Server {
+  private browser: Browser
+  private app: Application
   
-  constructor(browser, port=8080) {
+  constructor(browser: Browser, port=8080) {
     this.browser = browser
     this.app = Express()
     this.app.use(BodyParser.json())
     this.app.use(BodyParser.urlencoded({ extended: true }))
-    this._initApp()
+    this.initApp()
     this.app.listen(port)
   }
 
-  _initApp() {
+  private initApp() {
+    /**
+     * Check if whatsapp is logged in
+     * 
+     * Return:
+     *    status: boolean
+     */
+    this.app.get('/is/login', async (_, res) => {
+      res.json({
+        'status': await this.browser.checkLogin()
+      })
+    })
+
     /**
      * Get QR code before login
      * 
@@ -236,5 +251,3 @@ class Server {
     return !!this.browser.interpreter && await this.browser.interpreter.call('isLoggedIn')
   }
 }
-
-module.exports = Server
