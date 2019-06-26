@@ -38,7 +38,7 @@ export default class Server {
      * 
      * @apiParam (Query) {Boolean} [base64=false] false - return PNG buffer, true - return Base64 string
      * 
-     * @apiSuccess {String|Buffer} image content type will be application/base64 if bas64 is true, otherwise image/png
+     * @apiSuccess {Any} image content type will be application/base64 if bas64 is true, otherwise image/png
      *
      * @apiError {Buffer} Empty buffer with conten type image/png
      */
