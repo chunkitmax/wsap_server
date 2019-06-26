@@ -4,7 +4,7 @@
 ```bash
 # make sure this file has execute permission
 $ chmod +x start_docker.sh
-# install all dependencies
+# install all dependencies + (global typescript & apidoc)
 $ npm install
 ```
 
@@ -19,4 +19,8 @@ $ npm start
 ```
 
 ## Endpoints
-Please refer to definitions in [server.js](./server.js)
+Generate documentation
+```bash
+$ npm run doc
+```
+Then open ./doc/index.html in the browser

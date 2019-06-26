@@ -5,8 +5,9 @@
   "main": "./dist/main.ts",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "preinstall": "sudo npm i -g typescript",
+    "preinstall": "sudo npm i -g typescript; sudo npm i -g apidoc",
     "prestart": "tsc",
+    "doc": "apidoc -i ./src -o ./doc",
     "start": "node ./dist/main.js"
   },
   "author": "Petel__",
