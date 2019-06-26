@@ -1,8 +1,7 @@
-const Browser = require('./browser')
-const Server = require('./server')
+import Browser from './browser'
+import Server from './server'
 
-
-async function main() {
+async function main(): Promise<void> {
   let browser = new Browser()
   let server = new Server(browser)
 
