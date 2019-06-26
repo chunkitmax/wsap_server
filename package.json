@@ -2,7 +2,7 @@
   "name": "wsap_server",
   "version": "1.0.0",
   "description": "",
-  "main": "main.js",
+  "main": "./dist/main.ts",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "preinstall": "sudo npm i -g typescript",

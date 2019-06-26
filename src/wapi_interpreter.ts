@@ -21,14 +21,14 @@ export default class Interpreter {
     }).join(',')
   }
 
-  public async call(funcName: string, ...args: Array<any>): Promise<Object|Array<any>> {
+  public async call(funcName: string, ...args: Array<any>): Promise<object|Array<any>|boolean> {
     Assert(this.apiList.indexOf(funcName) >= 0)
     return JSON.parse(await this.browser.executeScript(`
       return JSON.stringify(window.WAPI.${funcName}(${this.to_script(args)}))
     `))
   }
 
-  public async callAsync(funcName: string, ...args: Array<any>): Promise<Object|Array<any>> {
+  public async callAsync(funcName: string, ...args: Array<any>): Promise<object|Array<any>|boolean> {
     Assert(this.apiList.indexOf(funcName) >= 0)
     try {
       return await this.browser.executeAsyncScript(`

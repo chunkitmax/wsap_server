@@ -5,14 +5,13 @@ import Interpreter from './wapi_interpreter';
 
 export default class Browser {
 
-  private browser?: WebDriver | null
+  private browser?: WebDriver
   private funcList: Array<string> = []
-  public interpreter?: Interpreter | null
+  public interpreter?: Interpreter
   
   public async release(): Promise<void> {
     if (this.browser)
       await this.browser.quit()
-    this.browser = null
   }
 
   // QR code should be displayed on WHITE background
@@ -77,7 +76,7 @@ export default class Browser {
 
   private async injectScript() {
     if (this.browser) {
-      let wapiScript = Fs.readFileSync('./WAPI.js', 'utf-8')
+      let wapiScript = Fs.readFileSync('./res/WAPI.js', 'utf-8')
       await this.browser.executeScript(wapiScript)
       let wapi = JSON.parse(await this.browser.executeScript('return JSON.stringify(Object.keys(window.WAPI))')) as Array<any>
       if (wapi) {

@@ -1,6 +1,7 @@
 import BodyParser from 'body-parser';
-import Express, { Application } from 'express';
+import Express, { Application, Response } from 'express';
 import Browser from './browser';
+import Interpreter from './wapi_interpreter';
 
 export default class Server {
 
@@ -18,10 +19,11 @@ export default class Server {
 
   private initApp() {
     /**
-     * Check if whatsapp is logged in
-     * 
-     * Return:
-     *    status: boolean
+     * @api {get} /is/loggedin Check if logged in
+     * @apiName isLoggedin
+     * @apiGroup Auth
+     *
+     * @apiSuccess {Boolean} status true if logged in
      */
     this.app.get('/is/login', async (_, res) => {
       res.json({
@@ -30,15 +32,15 @@ export default class Server {
     })
 
     /**
-     * Get QR code before login
+     * @api {get} /qr Get QR code
+     * @apiName GetQr
+     * @apiGroup Auth
      * 
-     * Endpoint:
-     *    <server url>/qr
-     * Query:
-     *    base64: boolean (default: false - return PNG, true - return Base64 String)
-     * Return:
-     *    (base64)? Base64 string : PNG buffer
-     *      ** return empty buffer if logged in (please check content length)
+     * @apiParam (Query) {Boolean} [base64=false] false - return PNG buffer, true - return Base64 string
+     * 
+     * @apiSuccess {String|Buffer} image content type will be application/base64 if bas64 is true, otherwise image/png
+     *
+     * @apiError {Buffer} Empty buffer with conten type image/png
      */
     this.app.get('/qr', async (req, res) => {
       let retBase64 = (req.query && !!req.query.base64) || false
@@ -60,26 +62,49 @@ export default class Server {
     })
 
     /**
-     * Get Chat objects
+     * @api {get} /chats/unread Get Chat objects having unread messages
+     * @apiName GetUnread
+     * @apiGroup Chat
      * 
-     * Endpoint:
-     *    <server url>/chats
-     * Query:
-     *    isGroup: boolean (default: false, true - only return groups)
-     *    name: string (default: null, any - search by name)
-     * Return:
-     *    success: boolean
-     *    reason: string / object (undefined if succeed)
-     *    chats: array of chat object (undefined if failed)
+     * @apiSuccess {Boolean} success
+     * @apiSuccess {Chat[]} chats array of chat object **unread messages in array chats[i].messages
+     *
+     * @apiError {Boolean} success
+     * @apiError {String} reason
+     */
+    this.app.get('/chats/unread', async (_,res) => {
+      try {
+        if (await this.isReady()) {
+          this.resSuccess(res, { chats: await this.browser.interpreter!.call('getUnreadMessages', true, true, 1000) })
+          return
+        }
+      } catch (err) {
+        this.resFailure(res, err)
+      }
+    })
+
+    /**
+     * @api {get} /chats Get Chat objects
+     * @apiName GetChats
+     * @apiGroup Chat
+     * 
+     * @apiParam (Query) {Boolean} [isGroup=false] whether only return groups
+     * @apiParam (Query) {String} [name] search by name
+     * 
+     * @apiSuccess {Boolean} success
+     * @apiSuccess {Chat[]} chats array of chat object
+     *
+     * @apiError {Boolean} success
+     * @apiError {String} reason
      */
     this.app.get('/chats', async (req, res) => {
       let isGroup = (req.query && req.query.isGroup) || false
       let name = (req.query && req.query.name) || null
       try {
-        if (!await this._isReady()) {
+        if (!await this.isReady()) {
           this.resFailure(res, 'browser not ready')
-        } else {
-          let ret = await this.browser.interpreter.call('getAllChats')
+        } else  {
+          let ret = await this.browser.interpreter!.call('getAllChats') as Array<any>
           if (name) {
             ret = ret.filter(v => v.name === name)
           }
@@ -94,51 +119,28 @@ export default class Server {
     })
 
     /**
-     * Get Chat objects having unread messages
+     * @api {post} /send/seen/:id Send seen signals
+     * @apiName SendSeen
+     * @apiGroup Message
      * 
-     * Endpoint:
-     *    <server url>/chats/unread
-     * Return:
-     *    success: boolean
-     *    reason: string / object (undefined if succeed)
-     *    chats: array of chat object (undefined if failed)
-     *      ** unread messages in array chats[i].messages
-     */
-    this.app.get('/chats/unread', async (_,res) => {
-      try {
-        if (await this._isReady()) {
-          this.resSuccess(res, { chats: await this.browser.interpreter.call('getUnreadMessages', true, true, 1000) })
-          return
-        }
-      } catch (err) {
-        this.resFailure(res, err)
-      }
-    })
-
-    /**
-     * Send seen signals
+     * @apiParam (Param) {String} id chat id
      * 
-     * Endpoint:
-     *    <server url>/send/seen
-     * Data:
-     *    id: string    chat id
-     * Return:
-     *    success: boolean
-     *    reason: string / object (undefined if succeed)
+     * @apiSuccess {Boolean} success
+     *
+     * @apiError {Boolean} success
+     * @apiError {String} reason
      */
-    this.app.post('/send/seen', async (req, res) => {
-      let chatId = (req.body && req.body.id) || null
+    this.app.post('/send/seen/:id', async (req, res) => { 
       try {
-        if (!await this._isReady()) {
+        let chatId = req.params.id!
+        if (!await this.isReady()) {
           this.resFailure(res, 'browser not ready')
-        } else if (chatId) {
-          if (await this.browser.interpreter.call(chatId)) {
+        } else {
+          if (await this.browser.interpreter!!.call(chatId)) {
             this.resSuccess(res, null)
           } else {
             this.resFailure(res, 'api call failed')
           }
-        } else {
-          this.resFailure(res, 'invalid chat id')
         }
       } catch (err) {
         this.resFailure(res, err)
@@ -146,26 +148,28 @@ export default class Server {
     })
 
     /**
-     * Send & check message (w/ 30 attempts)
+     * @api {post} /send/msg/:id Send & check message
+     * @apiName SendMessage
+     * @apiGroup Message
      * 
-     * Endpoint:
-     *    <server url>/send/msg
-     * Data:
-     *    id: string    chat id
-     *    msg: string   message body
-     * Return:
-     *    success: boolean
-     *    reason: string / object (undefined if succeed)
-     *    msgObj: msg object (undefined if failed)
+     * @apiParam (Param) {String} id chat id
+     * 
+     * @apiParam (Data) {String} msg message body
+     * 
+     * @apiSuccess {Boolean} success
+     * @apiSuccess {Message} msgObj
+     *
+     * @apiError {Boolean} success
+     * @apiError {String} reason
      */
-    this.app.post('/send/msg', async (req, res) => {
-      let chatId = (req.body && req.body.id) || null
-      let msg = (req.body && req.body.msg) || null
+    this.app.post('/send/msg/:id', async (req, res) => {
       try {
-        if (!await this._isReady()) {
+        let chatId = req.body.id!
+        let msg = req.body.msg!
+        if (!await this.isReady()) {
           this.resFailure(res, 'browser not ready')
         } else if (chatId && msg) {
-          let ret = await this.browser.interpreter.callAsync('sendMessage', chatId, msg)
+          let ret = await this.browser.interpreter!.callAsync('sendMessage', chatId, msg)
           if (typeof (ret) != 'boolean' && ret) {
             this.resSuccess(res, { msgObj: ret })
           } else if (ret) {
@@ -182,20 +186,21 @@ export default class Server {
     })
 
     /**
-     * Get messages
+     * @api {get} /send/:id/:op? Get messages
+     * @apiName GetMessage
+     * @apiGroup Message
      * 
-     * Endpoint:
-     *    <server url>/msgs/:id/:op?
-     * Param:
-     *    id: string    chat id
-     *    op: string    operation [more - load more messages]
-     * Query:
-     *    includeMe: boolean (default: true)
-     *    includeNoti: boolean (default: true)
-     * Return:
-     *    success: boolean
-     *    reason: string / object (undefined if succeed)
-     *    msgs: array of message object (undefined if failed)
+     * @apiParam (Param) {String} id chat id
+     * @apiParam (Param) {String="more"} [op] operation more - load more messages
+     * 
+     * @apiParam (Query) {Boolean} [includeMe=true]
+     * @apiParam (Query) {Boolean} [includeNoti=true]
+     * 
+     * @apiSuccess {Boolean} success
+     * @apiSuccess {Message[]} msgs
+     *
+     * @apiError {Boolean} success
+     * @apiError {String} reason
      */
     this.app.get('/msgs/:id/:op?', async (req, res) => {
       let id = (req.params && req.params.id) || null
@@ -203,13 +208,13 @@ export default class Server {
       let includeMe = (req.query && req.query.includeMe) || true
       let includeNoti = (req.query && req.query.includeNoti) || true
       try {
-        if (!await this._isReady()) {
+        if (!await this.isReady()) {
           this.resFailure(res, 'browser not ready')
         } else if (id) {
-          if (typeof op === 'strings' && op.toLowerCase() == 'more') {
-            await this.browser.interpreter.callAsync('loadEarlierMessages', id)
+          if (typeof op === 'string' && op.toLowerCase() == 'more') {
+            await this.browser.interpreter!.callAsync('loadEarlierMessages', id)
           }
-          this.resSuccess(res, { msgs: await this.browser.interpreter.call('getAllMessagesInChat', id, includeMe, includeNoti) })
+          this.resSuccess(res, { msgs: await this.browser.interpreter!.call('getAllMessagesInChat', id, includeMe, includeNoti) })
         } else {
           this.resFailure(res, 'invalid id')
         }
@@ -219,14 +224,14 @@ export default class Server {
     })
   }
 
-  resSuccess(res, obj) {
+  private resSuccess(res: Response, obj: object|null) {
     res.json({
       success: true,
       ...obj
     })
   }
 
-  resFailure(res, reason) {
+  private resFailure(res: Response, reason: Error|string) {
     if (typeof reason === 'object') {
       if (reason.stack) {
         res.json({
@@ -247,7 +252,7 @@ export default class Server {
     }
   }
 
-  async _isReady() {
-    return !!this.browser.interpreter && await this.browser.interpreter.call('isLoggedIn')
+  private async isReady(): Promise<boolean> {
+    return this.browser.interpreter !== undefined && (await this.browser.interpreter.call('isLoggedIn') as boolean)
   }
 }
